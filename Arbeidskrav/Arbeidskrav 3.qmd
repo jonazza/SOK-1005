@@ -1,0 +1,73 @@
+---
+title: "Assignment 3"
+format: pdf
+editor: visual
+---
+
+# Assignment 3
+
+### Task 1
+
+The figure below shows the correlation between 20 months averagely deaths per 100,000 persons and percentage vaccinated in the different states in the United States.
+
+```{r}
+#| echo: false
+#| warning: false
+
+# Clean enviroment
+rm(list=ls())
+
+# Load required packages
+library(jsonlite)
+library(tidyverse)
+library(ggrepel)
+```
+
+```{r}
+#| echo: false
+
+# JSON data URL
+url <- "https://static01.nyt.com/newsgraphics/2021/12/20/us-coronavirus-deaths-2021/ff0adde21623e111d8ce103fedecf7ffc7906264/scatter.json"
+
+# Makes a dataframe from the json data
+df <- fromJSON(url)
+
+#shorter names of the states
+df$name_short <- abbreviate(df$name, minlength = 3)
+
+df %>%
+ggplot(aes(x = fully_vaccinated_pct_of_pop, y = deaths_per_100k)) + 
+  geom_point(color = "#006400", alpha = 0.3) + #scatterplot
+  geom_text(aes(label = name_short), hjust = 0, vjust = 0, size=2.5)  + # add labels using the shortened name variable
+  scale_x_continuous(labels = scales::percent_format()) + #percentage y axis
+  labs(title="Covid-19 deaths since universal adult vaccine eligibility 
+compared with vaccination rates", y="20 avg. monthly deaths per 100,000", x="Share of population fully vaccinated") + #titles
+  theme_minimal() + #minimal theme
+  theme(axis.title=element_text(size=8)) #scale sized of axis names text
+```
+
+We can see Wyoming on the top-left corner with high number of deaths compared too the other states, aswell as low vaccination percentage. On the other side in the far bottom-right, we got Vermont. This state has a higher vaccination percentage (ca. 75 percent) and lower deaths per 100,000 cititzens compared to other states.
+
+### Task 2
+
+```{r}
+lm(deaths_per_100k ~ fully_vaccinated_pct_of_pop, data=df)
+
+```
+
+By calling the lm function in R, we are doing a linear regression of the data we have. The Intercept would be where the linear line would cross the y-axis if we had 0 percentage of vaccination. Based on this, we could estimate if we had zero vaccination, we would have an average of 31 deaths per 100k citizens. The coefficient of fully_vaccinated_pct_of_pop tells us how much the number of deaths per 100k would change if we change the fully_vaccinated_pct_of_pop by 1. Since our data range from 0.45 to 0.8, this would be the relevant for us. If we devide this number by 10, we get -3,666, and this would indicate how many less average deaths per 100k citizens we would have if the vaccination rate raised by 10%.
+
+```{r}
+df %>%
+ggplot(aes(x = fully_vaccinated_pct_of_pop, y = deaths_per_100k)) + 
+  geom_point(color = "#006400", alpha = 0.3) + #scatterplot
+  geom_text(aes(label = name_short), hjust = 0, vjust = 0, size=2.5)  +# add labels using the shortened name variable
+  geom_smooth(method=lm, se = FALSE, color= "#006400") +
+  scale_x_continuous(labels = scales::percent_format()) + #percentage y axis
+  labs(title="Covid-19 deaths since universal adult vaccine eligibility 
+compared with vaccination rates", y="20 avg. monthly deaths per 100,000", x="Share of population fully vaccinated") + #titles
+  theme_minimal() + #minimal theme
+  theme(axis.title=element_text(size=8)) #scale sized of axis names text
+```
+
+Here we could see the regression line as mentioned earlier. The number of average deaths per 100k could on average change by -3.666 per 10% change in vaccination rate.
