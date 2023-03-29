@@ -1,0 +1,167 @@
+---
+title: "Arbeidskrav 4"
+author: "Jonas A."
+format: html
+editor: visual
+warnings: false
+---
+
+```{r}
+#cleaning enviroment and loading poackages
+rm(list = ls())
+library(tidyverse)
+library(quantmod)
+library(lubridate)
+```
+
+# Task 1
+
+The table below shows (table 1) the total sales by month and customer segment for the regions 1 and 3.
+
+```{r}
+#part 1
+
+#downloading dataset
+df <- read.csv("https://raw.githubusercontent.com/uit-sok-1005-v23/uit-sok-1005-v23.github.io/main/storedata.csv")
+
+#makes order_date in date format
+df$Order_Date <- as.Date(df$Order_Date)
+
+#extracts year, month and day til new columns for easier filtering
+df$Order_Year <- format(df$Order_Date, "%Y")
+df$Order_Month <- format(df$Order_Date, "%m")
+df$Order_Day <- format(df$Order_Date, "%d")
+
+#makes a duplicate
+table1 <- df
+
+#filtering for 2017 and the wanted months, and selecting wanted data
+table1 <- table1 %>% 
+  filter(Order_Year == "2017", Order_Month >= "10", Customer_Segment %in% c("Corporate", "Consumer"), Region %in% c("Region 1", "Region 3")) %>% #filtering data
+  group_by(Region, Order_Month, Customer_Segment) %>% #grouping by wanted args and 
+  summarize(Total_Sales = sum(Sales)) # summarizing
+
+print(table1)
+```
+
+Figure 1 shows the total sales for region 1 and 3 by year and month.
+
+```{r}
+#part 2
+
+figure1 <- df %>% filter(Order_Year %in% c("2015", "2016", "2017"), Region %in% c("Region 1", "Region 13")) %>% 
+  group_by(Region, Order_Year, Order_Month) %>%
+  summarize(Total_Sales = sum(Sales)) %>%
+  ggplot(aes(x = Order_Month, y = Total_Sales, fill = Order_Year)) +
+  geom_col(width = 0.5, position = "dodge") +
+  facet_wrap(~ Region, ncol = 2) +
+  labs(x = "Month", y = "Total Sales", fill = "Year")+
+  scale_x_discrete(guide = guide_axis(n.dodge=2)) +
+  ggtitle("Figure 1: Total sales by year, month and region") +
+  theme_minimal()
+
+figure1
+```
+
+In the months shown in the table below (table 2), the total sales were greater in region 13 than in region 1.
+
+```{r}
+#part 3
+
+table2 <- df %>% filter(Order_Year %in% c("2015", "2016", "2017"), Region %in% c("Region 1", "Region 13")) %>% 
+  group_by(Region, Order_Year, Order_Month) %>%
+  summarize(Total_Sales = sum(Sales)) #selecting same years and regions as in fig 1, and also creating the total sales var
+
+table2 <- table2 %>% 
+  pivot_wider(names_from = Region, values_from = Total_Sales) %>% #pivot wider to get the regions seperated
+  filter(!!sym("Region 1") < !!sym("Region 13")) %>% 
+  select(Order_Year, Order_Month, !!sym("Region 1"), !!sym("Region 13")) #filterering where the total sales value in region 13 is greater than in region 1
+
+print(table2)
+```
+
+The table below (table 3) shows the which product and consumer segment that made the most profit on average in 2017. We can see that technology sold to small buisnesses made the most average profit.
+
+```{r}
+#part 4
+
+table3 <- df %>% #filtering
+  filter(Order_Year == 2017, !Region %in% c("Region 3", "Region 5", "Region 8")) %>%
+  group_by(Customer_Segment, Product_Category) %>% 
+  summarize(Average_Profit = mean(Profit)) %>% #calculating mean
+  arrange(desc(Average_Profit)) #descending order
+
+print(table3)
+```
+
+# Task 2
+
+The figure below shows the monthly average stock price for exxon, aswell as the monthly average price for oil barrels in dollars. We see some correlation between the stock price of the oil company Exxon Mobile and the oil price.
+
+```{r}
+getSymbols("XOM", src = "yahoo") #Data XOM stock price
+xom_df <- as.data.frame(XOM)
+xom_df <- tibble::rownames_to_column(xom_df, var = "Date")
+xom_df$Date <- as.Date(xom_df$Date) #as date
+xom_df <- xom_df %>% 
+  filter(Date >= "2010-01-04" & Date <= "2022-12-31")
+
+exxon <- xom_df %>%  #making monthly volume weighted mean of the close prices
+  mutate(year_month = format(Date, "%Y-%m")) %>% 
+  group_by(year_month) %>% 
+  summarize(exxon_avg = weighted.mean(XOM.Close, XOM.Volume))
+
+exxon$year_month <- ym(exxon$year_month) #making new year_month var into date var
+
+getSymbols("DCOILBRENTEU", src = "FRED") #Data Brent Crude Oil
+oil_df <- as.data.frame(DCOILBRENTEU)
+oil_df <- tibble::rownames_to_column(oil_df, var = "Date")
+oil_df$Date <- as.Date(oil_df$Date)
+oil_df <- oil_df %>%
+  filter(Date >= "2010-01-04" & Date <= "2022-12-31")
+
+oil <- na.omit(oil_df) %>%  #calculating monthly avg for oil
+  mutate(year_month = format(Date, "%Y-%m")) %>% 
+  group_by(year_month) %>% 
+  summarize(oil_avg = mean(DCOILBRENTEU))
+
+oil$year_month <- ym(oil$year_month) #making new year_month var into date var
+
+colors <- c("Exxon" = "#B1624EFF", "Oil" = "#5CC8D7FF")
+
+ggplot() + 
+  geom_line(data = exxon, aes(x = year_month, y = exxon_avg, color="Exxon")) + #exxon line
+  geom_line(data = oil, aes(x = year_month, y = oil_avg, color="Oil")) + #oil line
+  xlab("Year-Month") +  #x label
+  ylab("Price (USD)") + #y label
+  ggtitle("Monthly Average of Exxon Mobile 
+and Brent Crude Oil Prices") + #title for plot
+  theme_minimal() + #theme
+  scale_x_date(date_labels = "%Y-%m") + #date labels
+  scale_color_manual(values = colors) + #colors from vector above
+  labs(colour = NULL) #remove color legend
+
+```
+
+```{r}
+#merging the dfs by equal column
+exxon_oil <- merge(exxon, oil, by = "year_month")
+
+exxon_oil %>%
+ggplot(aes(x=exxon_avg, y=oil_avg)) +
+  geom_smooth(method=lm, se = FALSE)+
+  xlim(30, 125)+
+  ylim(30, 125) +
+  geom_abline(slope=1, intercept = 0, color="red") +
+  labs(title="Blue line: Correlation between Exxon
+and oil price", y="Oil", x="Exxon") +
+  theme_minimal()
+```
+
+If the correlation were perfect, the blue line would be the same as the red one. The red line represents a perfect correlation.
+
+```{r}
+lm(oil_avg ~ exxon_avg, data=exxon_oil)
+```
+
+The code above shows the correlation between the oil price and exxon stock prices. It says the correlation is 0.8492, where 1 is a perfect correlation. We can see the exxon stock and oil price is quite correlated.
