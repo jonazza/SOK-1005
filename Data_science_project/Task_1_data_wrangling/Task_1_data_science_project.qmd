@@ -1,0 +1,152 @@
+---
+title: "Data Science Project - SOK1005"
+author: "Candidatenumber 5"
+format: pdf
+echo: true
+output: true
+warning: false
+editor: visual
+---
+
+# Task 1 - Data Wrangling
+
+```{r}
+#cleaning enviroment and downloading required packages
+rm(list = ls()) #clean enviroment
+
+library(tidyverse) #tidyverse package
+library(haven) #haven package
+library(reshape2)
+library(lubridate)
+```
+
+```{r}
+
+#TASK 1
+
+#customer count data
+count <- read_dta("ccount.dta", encoding = "latin1")
+
+#store-level demographic data
+demo <- read_dta("demo.dta", encoding="latin1")
+
+#cheese upc data
+cheese_upc <- read.csv("https://www.chicagobooth.edu/-/media/enterprise/centers/kilts/datasets/dominicks-dataset/upc_csv-files/upcche.csv", encoding="latin1")
+
+#cheese movement data
+cheese_movement <- read.csv("wche.csv", encoding="latin1")
+
+#merging upc and movement file.
+cheese <- merge(cheese_upc,cheese_movement,by="UPC")
+```
+
+```{r}
+#Manipulating cheese data
+
+#Making date column for the weeks.
+
+#date for start date of first week mentioned from the df manual
+start_date <- as.Date("1989-09-14")
+
+#making date variable
+cheese$DATE <- start_date + (cheese$WEEK - 1) * 7
+
+#filter data only from 1990
+cheese <- cheese %>% filter(DATE >= "1990-01-04" & DATE <= "1990-12-27")
+
+```
+
+```{r}
+#modifying count df
+
+#removing first 1154 rows due to NAs only.
+count <- count[1155:nrow(count), ]
+
+#making the date var into dates for r to understand
+count$date <- as.Date(count$date, "%y%m%d")
+
+#making date into same format as other one
+count$date <- format(count$date, "%Y-%m-%d")
+
+#removes all rows when date is na
+count <- count[complete.cases(count$date), ]
+
+#filter same start date as cheese df
+count <- count %>% filter(date >= "1989-09-14")
+
+#Convert date variable to a Date format
+count$date <- as.Date(count$date)
+
+#creating a new variable called week which represents the week number starting from 1. First week is from 1989-09-14 til 1989-09-20 (same as cheese datasettet)
+count$WEEK <- as.integer((count$date - as.Date("1989-09-14"))/7) + 1
+
+# Remove the date column
+count <- count %>%
+  select(-date)
+
+# Group data by week and summarize all columns
+count_weekly <- count %>%
+  group_by(store, WEEK) %>%
+  summarise_all(list(sum = sum))
+
+#rename column
+count_weekly <- count_weekly %>% rename(STORE := store)
+
+#making date variable
+count_weekly$DATE <- start_date + (count_weekly$WEEK - 1) * 7
+
+#as.date
+count_weekly$DATE <- as.Date(count_weekly$DATE)
+
+#Filtering data for only 1990
+count_weekly <- count_weekly %>% filter(DATE >= "1990-01-04" & DATE <= "1990-12-27")
+
+#merging count weekly and cheese df
+df<- merge(cheese, count_weekly, by = c("STORE", "WEEK", "DATE"))
+
+#selecting data where move is > 0
+df <- df %>% filter(MOVE>0)
+```
+
+```{r}
+#define regular expressions to extract the brand names from the desc column
+brand_regex <- c("KR ", "DOM ", "SARG ", "HH ", "BORDEN ")
+brand_regex_pattern <- paste(brand_regex, collapse = "|")
+
+#making a brand column. Brands not listen in brand_regex will show up as na.
+df_2<- df %>%
+  mutate(BRAND = str_extract(DESCRIP, brand_regex_pattern))
+
+#removing na brands
+df_2 <- df_2 %>%
+  filter(!is.na(BRAND))
+
+#group by and merge data by brand and calculating some data needed.
+df_2 <- df_2 %>%
+  group_by(STORE, WEEK, DATE, BRAND) %>%
+  summarise(MOVE_SUM = sum(MOVE),
+            AVG_PROFIT = mean(PRICE),
+            SUM_PROFIT = sum(PROFIT),
+            AVG_PRICE = mean(PRICE),
+            cheese_sum = mean(cheese_sum))
+
+#week started from 17, so substract by 16 to get it right
+df_2 <- df_2 %>% mutate(WEEK = WEEK - 16)
+```
+
+```{r}
+#rename column
+demo <- demo %>% rename(STORE := store)
+
+#merging demo dataset to the rest
+df_2_demo<- merge(df_2, demo, by = "STORE")
+
+#selecting only first 14 colummns
+df_2_demo <- df_2_demo[, 1:15]
+
+#removing 2 unwanted columns
+df_2_demo <- subset(df_2_demo, select = c(-name, -mmid))
+
+#writing df as csv
+write_csv(df_2_demo, "df.csv")
+```
