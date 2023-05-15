@@ -12,7 +12,8 @@ https://www.chicagobooth.edu/boothsitecore/docs/dff/store-demos-customer-count/d
 #cheese movement file
 https://www.chicagobooth.edu/-/media/enterprise/centers/kilts/datasets/dominicks-dataset/movement_csv-files/wche.zip
 
-2. Run all the code blocks in the quatro document, this will create the dataset used in the rest of the tasks.
+2. Run all the code blocks in the quatro document, this will create the dataset used in the rest of the tasks. 
+This dataset is stored in this folder, and is called df.csv.
 
 
 
