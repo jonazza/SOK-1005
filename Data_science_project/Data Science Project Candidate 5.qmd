@@ -1,0 +1,278 @@
+---
+title: "Data Science Project - SOK1005"
+author: "Candidatenumber 5 & 32"
+format: html
+echo: false
+output: true
+warning: false
+editor: visual
+---
+
+```{r}
+#cleaning enviroment and downloading required packages
+rm(list = ls()) #clean enviroment
+
+library(tidyverse) #tidyverse package
+library(leaflet) #map plot packages
+library(plotly) #plotly for interactive plots
+library(lubridate) #lubridate package
+library(lemon) #lemon package and config
+knit_print.data.frame <- lemon_print
+```
+
+## Task 2
+
+This report provides an analysis of the sales and profits for the Oak Lawn store in Chicago. The analysis uses data from cheese sales spanning from the first week and throughout the last week of 1990. The purpose of this report is to provide insight into the store's cheese sale performance during the year and to identify opportunities for the future.
+
+### Profit each week for Oak Lawn (store 8)
+
+```{r}
+#loading data from github. Task 1 is stored in the SOK-1005 folder of jan127.
+df <- read.csv("https://raw.githubusercontent.com/jan127/SOK-1005/main/Data_science_project/Task_1_data_wrangling/df.csv")
+
+df <- df %>% mutate(SUM_PROFIT=SUM_SALES * (AVG_PROFIT_MARGIN/100))
+
+#date as date format
+df$DATE <- as.Date(df$DATE)
+
+#calculate the cumulative sum of profit for each brand and date for store 8
+df_weekly_s8 <- df %>% filter(STORE=="8") %>%
+  group_by(BRAND) %>%
+  mutate(TOTAL_PROFIT = cumsum(SUM_PROFIT))
+
+#interactive plot
+ggplotly(df_weekly_s8 %>% 
+  ggplot(aes(x=DATE, y=SUM_PROFIT, color=BRAND)) +
+  geom_line() + 
+  geom_point() +
+  theme_minimal() + 
+  labs(title="STORE 8: PROFIT FOR EACH WEEK 
+FROM CHEESE SALES 1990",
+       y= "Profit ($)",
+       x="Date",
+       color="Brand"))
+```
+
+The figure above represents the total profit from cheese sales by brand. By the figure, we can see that the total profit from cheese sales is highest by the KR brand, which stands for Kraft and the DOM brand. The average profit for this cheese brand, as we can see from the chart above, is between 1000-2000\$ each week for Oak Lawn store.
+
+### Amount sold each week for Oak Lawn (store 8)
+
+```{r}
+ggplotly(df %>% 
+  filter(STORE == '8') %>%
+  ggplot(aes(x=DATE, y=SUM_MOVE, color=BRAND)) +
+  geom_line() + 
+  geom_point() +
+  theme_minimal() +
+  labs(title='STORE 8: WEEKLY AMOUNT CHEESE SOLD 1990', y='Amount sold', x='Date', color='Brand')+
+    scale_y_continuous(limits = c(0, 5000), breaks = seq(0, 5000, by = 1000))) 
+```
+
+The figure above repsesents the amount of cheeses sold, sorted by brand. Again we can see the sales of the Kraft and DOM cheese is at the top. Theese brands seems to be the most popular at the Oak Lawn store. We can see something interesting in April 1990. We see all cheese sales falling quite a bit.
+
+### Profit Margins
+
+```{r, render=lemon_print}
+df_profit_s8 <- df_weekly_s8 %>% group_by(BRAND) %>%
+  summarise(AVG_PROFIT_MARGIN = mean(AVG_PROFIT_MARGIN))
+
+head(df_profit_s8)
+```
+
+The table shows the profit margins for the different cheese brands. We can see even though KR doesnt provide the highest average profit, still it provides most profit due to high salerates. We can see Borden performing badly compared to the other brands, on both amount sold and profit margins.
+
+### Total profit from different cheese brands for Oak Lawn (store 8)
+
+```{r}
+#interactive plot
+ggplotly(df_weekly_s8 %>% 
+  ggplot(aes(x=DATE, y=TOTAL_PROFIT, color=BRAND)) +
+  geom_line() + 
+  theme_minimal() + 
+  labs(title="STORE 8: TOTAL PROFIT FOR 1990 
+FROM CHEESE SALES",
+       y= "Profit ($)",
+       x="Date",
+       color="Brand"))
+```
+
+During the time period we analyzed, the store generated a total profit of 136 318\$ from cheese sales alone. The sales were driven primarily by the KR and DOM brand, which accounted for most of the total sales. HH and Borden performed poorly.
+
+Total Profit - 136 318\$
+
+Sales performance by Cheese Brand:
+
+·   KR -- 61 126\$
+
+·   Dom -- 56 786\$
+
+·   SARG -- 11 641\$
+
+·   HH -- 4 233\$
+
+·   Borden -- 2 532\$
+
+### Sales by age group
+
+```{r}
+#selecting only wanted vars
+df_s8_age <- df_weekly_s8[c("age9", "age60")]
+
+#making age 9 - 60 var
+df_s8_age <- df_s8_age[1, ] %>% mutate(age9_60 = 1 - age9 - age60)
+
+#pivot longer
+df_s8_age <- df_s8_age %>% 
+  pivot_longer(c("age9", "age60", "age9_60"), names_to = "age_group", values_to = "percentage")
+
+ggplot(df_s8_age, aes(x="", y=percentage, fill=age_group)) +
+  geom_bar(stat="identity", width=1) +
+  coord_polar("y", start=0) +
+  geom_col(aes(x=0,y=0))+
+  labs(title = "Oak Lawn: Sales by age groups", x=" ", y="% of customers", fill= "Age group") + 
+  scale_y_continuous(labels = scales::percent) +
+  theme_minimal()
+```
+
+Sales perfomance by Age Group:
+
+·   Age 0-9: 12% of overall sales with a revenue of 16 358\$
+
+·   Age 60+: 25% of overall sales with a revenue of 34 080\$
+
+·   All other: 63% of overall sales with a revenue of 85 880\$
+
+The pie chart shows the distribution of cheese sales for Oak Lawn among the different age groups. As seen, the largest group of customers are those in the middle of the pack. Which is not that surprising considering they contain the wast majority of the population.
+
+## Task 3
+
+A monthly sales report to the company should give you a concrete oversight over a couple of things for you to take into consideration for the future. By doing a monthly sales report, you get a more comprehensive, less volatile and a report thats more suited for decision-making compared to a weekly report. Here's some examples on what a monthly report should include:
+
+ ·   Total sales for the month: Including all brand will give you the sum of all sales done by each month and even for the whole year.
+
+ ·   Comparison to previous months: By including more months we get an overview on which months people are buying our product, this will make it easier to plan for the future by being prepared for the years and months to come.
+
+ ·   Sales by product: This should give an oversight over which brand is doing well and which is underperforming. And important step for planning ahead as a company dont want to stock up on products that dont sell.
+
+ ·   Sales by territory: This will give the company an overview of which area that generates the most revenue. Giving the company an opportunity to identify for growth.
+
+ ·   Analysis of trends in sales: This should explain significant changes in sales from previous months, giving the company the possibility to capitalize on opportunities for the future.
+
+·   Recommandations for improvements: This is where you should give recommendations for how the company can improve.
+
+Here are examples:
+
+### Monthly sales - Chain based numbers
+
+```{r}
+
+#summarizing for all stores
+df_monthly <- df %>% group_by(DATE, BRAND) %>%
+  summarise(SUM_MOVE = sum(SUM_MOVE),
+            SUM_PROFIT = sum(SUM_PROFIT),
+            AVG_PROFIT_MARGIN = mean(AVG_PROFIT_MARGIN),
+            age9 = mean(age9),
+            age60 = mean(age60))
+
+#making month var with lubridate
+df_monthly$MONTH <- month(df_monthly$DATE)
+
+#grouping by month and brand znd summarizing
+df_monthly <- df_monthly %>% group_by(MONTH, BRAND) %>%
+  summarise(SUM_MOVE = sum(SUM_MOVE),
+            SUM_PROFIT = sum(SUM_PROFIT),
+            AVG_PROFIT_MARGIN = mean(AVG_PROFIT_MARGIN),
+            age9 = mean(age9),
+            age60 = mean(age60))
+#plot
+ggplotly(df_monthly %>% 
+  ggplot(aes(x=MONTH, y=SUM_MOVE, color=BRAND)) +
+  geom_line() + 
+  geom_point() +
+  theme_minimal() +
+  labs(title='CHEESE SALES DOMINICKS STORES 1990', y='Amount sold', x='Month', color='Brand')+
+    scale_x_continuous(limits = c(1, 12), breaks = seq(1, 12, by = 1)))
+```
+
+The figure above shows the amount of sales by cheese brand for the chain. We can see the KR and DOM brand performing well, with fluctuations. We see HH and Borden brand with relative low sales compared to the other brands.
+
+### Total profit for the year
+
+```{r, render=lemon_print}
+df_profit_all_stores <- df_monthly %>% group_by(BRAND) %>%
+  summarise(TOTAL_PROFIT = sum(SUM_PROFIT))
+
+head(df_profit_all_stores)
+```
+
+We can see the KR brand providing the largest profit amount to the chain, followed closely by the DOM brand. We see the Borden brand providing a low amount of profit to the chain, compared to other brands. We saw from TASK 2, that the average profit the Borden brand was the lowest, aswell as low sales. We might look into finding other brands to replace this Brand, to achieve higher cheese sales in total.
+
+### Monthly profit for the different brands
+
+```{r}
+#making sum profit in thousands
+df_monthly$SUM_PROFIT <- df_monthly$SUM_PROFIT/1000
+
+#plot
+ggplotly(df_monthly %>% 
+  ggplot(aes(x=MONTH, y=SUM_PROFIT, color=BRAND)) +
+  geom_line() + 
+  geom_point() +
+  theme_minimal() +
+  labs(title='PROFIT FROM CHEESE SALES 
+DOMINICKS STORES', y='Profit (1000$)', x='Month', color='Brand')+
+    scale_x_continuous(limits = c(1, 12), breaks = seq(1, 12, by = 1)))
+```
+
+The figure above shows the total profit in thousand dollars. We can use this data for looking for different trends, and which months performs better than others.
+
+## Task 4
+
+```{r}
+
+#demo data from store
+df_cord_data = df[c("STORE", "city", "lat", "long")]
+
+#making long and lat into degrees
+df_cord_data <- df_cord_data %>% 
+  mutate(lat = lat/10000,
+         long = long/-10000)
+
+#making a yearly total profit and sales by store
+df_year<- df %>% 
+  group_by(STORE) %>%
+  summarise(Yearly_move = sum(SUM_MOVE),
+            Yearly_profit = sum(SUM_PROFIT))
+
+#combining cord data with yearly profit data
+df_year_lat_long <- distinct(merge(df_year, df_cord_data, by="STORE"))
+
+
+#create a leaflet map centered on the chicaho
+us_map <- leaflet() %>%
+  addTiles() %>%
+  setView(lng = -87.6298, lat = 41.8781, zoom = 8) %>%
+  setMaxBounds(lng1 = -88.53, lat1 = 41.64, lng2 = -87.36, lat2 = 42.05)
+
+#colors for markers on map
+color_pal <- colorNumeric(palette = "RdYlGn", domain = df_year_lat_long$Yearly_move)
+
+#markers to the map
+us_map_markers <- us_map %>%
+  addCircleMarkers(data = df_year_lat_long, lng = ~long, lat = ~lat,
+                   radius = ~Yearly_move/50000, stroke = FALSE,
+                   fillOpacity = 1, fillColor = ~color_pal(Yearly_move),
+                   popup = paste("Store: ", df_year_lat_long$STORE, "<br>",
+                                 "Sales:", format(df_year_lat_long$Yearly_move, big.mark = ","))) %>%
+   addLegend("bottomright",
+pal = color_pal,
+values = df_year_lat_long$Yearly_move,
+title = "Amount of sales",
+opacity = 1)
+
+#print the map
+us_map_markers
+
+```
+
+The interactive map above shows us different Dominicks store locations in Chicago. The size of the markers indicate the total sales amount. Larger marker - more sales. We can also see different areas missing stores, between decent performing other ones. These areas could be potential new locations for stores. We can use the amount sold as an indicator of well performing ares for new stores.
